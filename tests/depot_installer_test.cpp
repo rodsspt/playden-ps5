@@ -371,6 +371,40 @@ void EightSlotsAndShape(const std::filesystem::path& root) {
   CHECK(Read(root / "parallel") == "abcdefgh");
 }
 
+void MoreThanEightSlotsAndShape(const std::filesystem::path& root) {
+  for (const int requested : {16, 32, 99}) {
+    const int expected_slots = requested > 32 ? 32 : requested;
+    ParallelFixture fixture;
+    std::vector<std::string> pieces;
+    std::string expected;
+    for (int index = 0; index < 64; ++index) {
+      pieces.push_back(std::to_string(index) + "|");
+      expected += pieces.back();
+    }
+    fixture.world.manifests[441].files = {fixture.world.AddFile("parallel", pieces)};
+    auto hooks = fixture.Hooks();
+    const auto stats = hooks.stats;
+    hooks.stats = [&](const char* phase, const InstallStats& value) {
+      stats(phase, value);
+      CHECK(value.slots == static_cast<std::uint32_t>(expected_slots));
+    };
+    DepotInstaller installer(hooks);
+    installer.SetTuning({requested, 5});
+    std::atomic<bool> cancel{false};
+    InstallOutcome result;
+    const auto install_root = root / std::to_string(requested);
+    std::thread caller([&] { result = installer.Run({}, Target(install_root), cancel); });
+    CHECK(fixture.Wait([&] { return fixture.entered == expected_slots; }));
+    fixture.Release();
+    caller.join();
+    CHECK(result.error == InstallError::kNone);
+    CHECK(fixture.peak == expected_slots && fixture.last.peak_active == expected_slots);
+    CHECK(fixture.factories == expected_slots && fixture.active == 0);
+    CHECK(fixture.last.chunks_done == 64 && fixture.last.requests == 64);
+    CHECK(Read(install_root / "parallel") == expected);
+  }
+}
+
 void CancelStopsAllWorkers(const std::filesystem::path& root, bool during_backoff) {
   ParallelFixture fixture;
   fixture.backoff = during_backoff;
@@ -515,8 +549,12 @@ void TuningFileDefaultsAndValidation(const std::filesystem::path& root) {
   std::ofstream(path) << "slots=8\nahead=12\n";
   tuning = ReadDownloadTuning(path);
   CHECK(tuning.slots == 8 && tuning.ahead_files == 12);
+  for (const int slots : {16, 32}) {
+    std::ofstream(path) << "slots=" << slots << "\n";
+    CHECK(ReadDownloadTuning(path).slots == slots);
+  }
   std::ofstream(path) << "slots=99\n";
-  CHECK(ReadDownloadTuning(path).slots == 8);
+  CHECK(ReadDownloadTuning(path).slots == 32);
   std::ofstream(path) << "slots=0\n";
   CHECK(ReadDownloadTuning(path).slots == 1);
   for (const auto text : {"slots=8\nahead=-1\n", "slots=abc\n", "slots=8garbage\n", "unknown=1\n", "slots=8\nslots=1\n"}) {
@@ -972,6 +1010,7 @@ int main() {
   OverlapsFourFetches(base / "parallel");
   OutOfOrderAndBoundedResults(base / "out-of-order");
   EightSlotsAndShape(base / "eight-slots");
+  MoreThanEightSlotsAndShape(base / "more-than-eight-slots");
   CancelStopsAllWorkers(base / "cancel-fetch", false);
   CancelStopsAllWorkers(base / "cancel-backoff", true);
   WorkerFailureWinsAndJoins(base / "worker-failure");
