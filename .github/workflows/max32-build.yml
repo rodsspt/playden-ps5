@@ -35,9 +35,8 @@ jobs:
         run: |
           brew install cmake ninja pkgconf sdl2-compat llvm@18
           echo "LLVM_CONFIG=$(brew --prefix llvm@18)/bin/llvm-config" >> "$GITHUB_ENV"
-      - name: Prepare verified dependencies and fonts
+      - name: Prepare verified host dependencies and fonts
         run: |
-          bash scripts/fetch-deps.sh
           bash scripts/network-deps/prepare-host-deps.sh
           bash scripts/build-homebrew.sh --prepare-fonts-only
       - name: Configure and build regression tests
@@ -50,6 +49,7 @@ jobs:
         run: ctest --preset homebrew-host -R '^(depot_installer|mbedtls_threading|download_rate|download_speed_report)$' --repeat until-fail:3 --timeout 90
       - name: Build complete PS5 title with native helpers
         run: |
+          bash scripts/fetch-deps.sh
           bash scripts/build-lapy-helper.sh
           bash scripts/build-homebrew-ps5.sh
       - name: Package experimental title and provenance
