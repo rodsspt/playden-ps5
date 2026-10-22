@@ -23,8 +23,14 @@ jobs:
       - name: Checkout pinned source and submodules
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
-          submodules: recursive
+          submodules: false
           persist-credentials: false
+      - name: Fetch exact pinned submodules from available upstream forks
+        run: |
+          git submodule init
+          git config submodule.third_party/ps5-native-app-boilerplate.url https://github.com/leolobato/ps5-native-app-boilerplate.git
+          git submodule update --init --recursive
+          test "$(git -C third_party/ps5-native-app-boilerplate rev-parse HEAD)" = f98de734b68b0b980d38ff03a330066afd6ae16d
       - name: Install supported host tools
         run: |
           brew install cmake ninja pkgconf sdl2-compat llvm@18
