@@ -216,7 +216,7 @@ DownloadTuning ReadDownloadTuning(const std::string& path) {
     const auto key = text.substr(0, equals);
     if (key == "slots" && !seen_slots) {
       seen_slots = true;
-      tuning.slots = std::clamp(value, 1, 8);
+      tuning.slots = std::clamp(value, 1, DownloadTuning::kMaxSlots);
     } else if (key == "ahead" && !seen_ahead && value >= 1 && value <= 65536) {
       seen_ahead = true;
       tuning.ahead_files = value;
@@ -305,7 +305,7 @@ InstallOutcome DepotInstaller::Run(const StoredSession& session, const InstallTa
                                    const std::function<void(const InstallProgress&)>& on_progress) {
   InstallOutcome outcome;
   InstallStats stats;
-  const int slots = std::clamp(tuning_.slots, 1, 8);
+  const int slots = std::clamp(tuning_.slots, 1, DownloadTuning::kMaxSlots);
   const int ahead_files = std::clamp(tuning_.ahead_files, 1, 65536);
   stats.slots = slots; stats.ahead_files = ahead_files;
   CdnStats worker_cdn;

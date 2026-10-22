@@ -49,11 +49,12 @@ struct InstallProgress {
 };
 
 struct DownloadTuning {
+  static constexpr int kMaxSlots = 32;
   int slots = 4;
   int ahead_files = 256;
 };
 
-// A missing or malformed file uses defaults; valid slot counts are clamped to 1..8.
+// A missing or malformed file uses defaults; slot counts are clamped to 1..DownloadTuning::kMaxSlots.
 DownloadTuning ReadDownloadTuning(const std::string& path);
 
 // Wall-clock phases and summed stages; worker durations can exceed wall time.
